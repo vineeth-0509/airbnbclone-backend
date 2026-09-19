@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatarUrl String?
+  bio       String?
+  isHost    Boolean  @default(false)
+  hostSince DateTime?
+  createdAt DateTime @default(now())
+
+  listings  Listing[]
+  bookings  Booking[]
+  reviews   Review[]
+  favorites Favorite[]
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  slug     String    @unique
+  label    String
+  icon     String
+  listings Listing[]
+}
+
+model Listing {
+  id            String   @id @default(cuid())
+  title         String
+  description   String
+  type          String   // Entire home, Private room, Shared room
+  city          String
+  country       String
+  lat           Float
+  lng           Float
+  pricePerNight Int      // stored in minor units of the listing currency
+  currency      String   @default("INR")
+  cleaningFee   Int      @default(0)
+  serviceFeePct Float    @default(0.12)
+  guests        Int
+  bedrooms      Int
+  beds          Int
+  baths         Float
+  instantBook   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  hostId     String
+  host       User     @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  images     ListingImage[]
+  amenities  ListingAmenity[]
+  bookings   Booking[]
+  reviews    Review[]
+  favorites  Favorite[]
+  blockedDates BlockedDate[]
+
+  @@index([city])
+  @@index([pricePerNight])
+}
+
+model ListingImage {
+  id        String  @id @default(cuid())
+  url       String
+  alt       String?
+  position  Int     @default(0)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, position])
+}
+
+model Amenity {
+  id       String           @id @default(cuid())
+  slug     String           @unique
+  label    String
+  group    String // Kitchen and dining, Bathroom, Safety, ...
+  icon     String
+  listings ListingAmenity[]
+}
+
+model ListingAmenity {
+  listingId String
+  amenityId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, amenityId])
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  checkIn    DateTime      @db.Date
+  checkOut   DateTime      @db.Date
+  guests     Int
+  nights     Int
+  subtotal   Int
+  cleaningFee Int
+  serviceFee Int
+  total      Int
+  status     BookingStatus @default(CONFIRMED)
+  createdAt  DateTime      @default(now())
+  stripeSessionId String? @unique
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  review    Review?
+
+  @@index([listingId, checkIn, checkOut])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model BlockedDate {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, date])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  body          String
+  cleanliness   Int
+  accuracy      Int
+  checkin       Int
+  communication Int
+  location      Int
+  value         Int
+  overall       Float
+  createdAt     DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  bookingId String?  @unique
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([listingId])
+}
+
+model Favorite {
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@id([userId, listingId])
+}
