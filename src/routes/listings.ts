@@ -218,7 +218,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     const listing = await prisma.listing.create({
       data: {
         ...listingFields,
-        hostId: req.userId as string,
+        host: { connect: { id: req.userId as string } },
         category: categorySlug ? { connect: { slug: categorySlug } } : undefined,
         images: { create: images.map((url, position) => ({ url, position })) },
         amenities: { create: amenitySlugs.map((slug) => ({ amenity: { connect: { slug } } })) },
